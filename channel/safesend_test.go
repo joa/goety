@@ -8,8 +8,8 @@ func TestSafeSend(t *testing.T) {
 	}
 
 	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("safe send must not panic")
+		if r := recover(); r != nil {
+			t.Error("SafeSend must not panic")
 		}
 	}()
 

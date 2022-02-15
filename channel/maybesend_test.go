@@ -40,8 +40,8 @@ func TestMaybeSendPanic(t *testing.T) {
 
 func TestSafeMaybeSend(t *testing.T) {
 	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("SafeMaybeSend should NOT panic when the channel is closed")
+		if r := recover(); r != nil {
+			t.Error("SafeMaybeSend should NOT panic when the channel is closed")
 		}
 	}()
 

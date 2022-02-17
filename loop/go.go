@@ -24,7 +24,11 @@ func GoErr(ctx context.Context, errs chan interface{}, f func()) {
 		defer func() {
 			if err := recover(); err != nil {
 				if errs != nil {
-					errs <- err
+					select {
+					case <-ctx.Done():
+						return
+					case errs <- err:
+					}
 				}
 
 				GoErr(ctx, errs, f)

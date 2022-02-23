@@ -45,7 +45,7 @@ func TestGet(t *testing.T) {
 		return
 	}
 
-	if res, err := bind.Get[*Impl](ctx); err != nil {
+	if res, err := bind.TryGet[*Impl](ctx); err != nil {
 		// we should be able to get *Impl
 		t.Fatal(err)
 		return
@@ -53,7 +53,7 @@ func TestGet(t *testing.T) {
 		t.Errorf("expected Field, got %s", res.Field)
 	}
 
-	if res, err := bind.Get[T](ctx); err != nil {
+	if res, err := bind.TryGet[T](ctx); err != nil {
 		// we should be able to get T
 		t.Fatal(err)
 		return
@@ -66,7 +66,7 @@ func TestGet(t *testing.T) {
 	}
 
 	// get a *T from the context
-	res, err := bind.Get[*T](ctx)
+	res, err := bind.TryGet[*T](ctx)
 
 	if err != nil {
 		t.Fatal(err)
@@ -117,7 +117,7 @@ func TestGetIfaceToIfaceUnsatisfied(t *testing.T) {
 		return
 	}
 
-	if _, err = bind.Get[IfaceA](ctx); !errors.Is(err, bind.ErrUnsatisfiedInterface) {
+	if _, err = bind.TryGet[IfaceA](ctx); !errors.Is(err, bind.ErrUnsatisfiedInterface) {
 		t.Errorf("expected ErrUnsatisfiedInterface, got %s", err)
 	}
 }
@@ -135,7 +135,7 @@ func TestGetIfaceToIfaceSatisfied(t *testing.T) {
 		return
 	}
 
-	if _, err = bind.Get[IfaceA](ctx); err != nil {
+	if _, err = bind.TryGet[IfaceA](ctx); err != nil {
 		t.Errorf("expected no error, got %s", err)
 	}
 }

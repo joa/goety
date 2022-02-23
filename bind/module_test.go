@@ -11,7 +11,7 @@ func TestModule_Get(t *testing.T) {
 		Baz string
 	}
 
-	m := newModule(nil)
+	m := newBindings(nil)
 
 	err := m.Configure(
 		Type[*T](),

@@ -6,42 +6,52 @@ import (
 	"sync"
 )
 
-const bindTag = "bind"
+const (
+	bindTag            = "bind"
+	scopeEmptyDash     = "-"
+	scopeEmptyWildcard = "*"
+)
 
-type Binding interface {
-	For(key string) Binding
-	typ() reflect.Type
-	scope() string
-	solve() (res reflect.Value, init bool, err error)
-}
+type typeBindings map[string]Binding
 
-type bindingTo interface {
-	typTo() reflect.Type
-}
+type moduleBindings map[reflect.Type]typeBindings
 
+// Bindings within a context.
 type Bindings interface {
+	// Configure bindings in a context.
+	//
+	// Errors are returned when there are duplicate bindings.
+	//
+	// Example
+	//
+	//  bindings.Configure(
+	//    bind.Instance[string]("username"),
+	//    bind.Instance[string]("password"), // this will result in ErrDuplicate
+	//  )
+	//
+	//  bindings.Configure(
+	//    bind.Instance[string]("username").For("username"), // different scopes can be used to bind
+	//    bind.Instance[string]("password").For("password"), // multiple values of the same type
+	//  )
 	Configure(bindings ...Binding) (err error)
 }
 
-type typeBindings map[string]Binding
-type moduleBindings map[reflect.Type]typeBindings
-
-type module struct {
+// bindings is a set of type bindings within a context.
+type bindings struct {
 	mut      sync.RWMutex
-	parent   *module
+	parent   *bindings
 	bindings moduleBindings
 }
 
-func newModule(parent *module) (res *module) {
-	res = &module{
+// newBindings creates and returns an initialized bindings object.
+func newBindings(parent *bindings) *bindings {
+	return &bindings{
 		parent:   parent,
 		bindings: make(moduleBindings),
 	}
-
-	return
 }
 
-func (m *module) Configure(bindings ...Binding) (err error) {
+func (m *bindings) Configure(bindings ...Binding) (err error) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -54,7 +64,8 @@ func (m *module) Configure(bindings ...Binding) (err error) {
 	return
 }
 
-func (m *module) configureBinding(b Binding) (err error) {
+// configureBinding - configure a single binding.
+func (m *bindings) configureBinding(b Binding) (err error) {
 	typ := b.typ()
 	typeScope, loaded := m.bindings[typ]
 
@@ -80,19 +91,20 @@ func (m *module) configureBinding(b Binding) (err error) {
 	return
 }
 
-func findBinding(m *module, t reflect.Type, k string) (Binding, bool) {
-	for mm := m; mm != nil; mm = mm.parent {
-		mm.mut.RLock()
+// findBinding for type t and scope k in b and its parents.
+func findBinding(b *bindings, t reflect.Type, k string) (Binding, bool) {
+	for bb := b; bb != nil; bb = bb.parent {
+		bb.mut.RLock()
 
-		typeScope, loaded := mm.bindings[t]
+		typeScope, loaded := bb.bindings[t]
 
 		if !loaded {
-			mm.mut.RUnlock()
+			bb.mut.RUnlock()
 			continue
 		}
 
 		b, loaded := typeScope[k]
-		mm.mut.RUnlock()
+		bb.mut.RUnlock()
 
 		if !loaded {
 			continue
@@ -104,8 +116,8 @@ func findBinding(m *module, t reflect.Type, k string) (Binding, bool) {
 	return nil, false
 }
 
-func (m *module) get(t reflect.Type, k string) (res reflect.Value, err error) {
-	if k == "-" || k == "*" {
+func (m *bindings) get(t reflect.Type, k string) (res reflect.Value, err error) {
+	if k == scopeEmptyDash || k == scopeEmptyWildcard {
 		k = ""
 	}
 
@@ -152,10 +164,12 @@ func (m *module) get(t reflect.Type, k string) (res reflect.Value, err error) {
 	return
 }
 
-func (m *module) initialize(typ reflect.Type, value reflect.Value) (err error) {
+func (m *bindings) initialize(typ reflect.Type, value reflect.Value) (err error) {
 	switch typ.Kind() {
 	case reflect.Pointer:
-		return m.initialize(typ.Elem(), value.Elem())
+		if err = m.initialize(typ.Elem(), value.Elem()); err != nil {
+			return
+		}
 	case reflect.Struct:
 		numField := typ.NumField()
 
@@ -181,6 +195,10 @@ func (m *module) initialize(typ reflect.Type, value reflect.Value) (err error) {
 
 			field.Set(v)
 		}
+	}
+
+	if init, ok := value.Interface().(Initializer); ok {
+		err = init.InitAfter()
 	}
 
 	return

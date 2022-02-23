@@ -27,6 +27,9 @@ type Binding interface {
 
 	// solve this binding.
 	solve() (res reflect.Value, init bool, err error)
+
+	// eager is true if the binding should be solved during configuration
+	eager() bool
 }
 
 // bindingTo represents an edge to another type.
@@ -114,6 +117,30 @@ func Provider[T any](f func() (T, error)) Binding {
 	return &providerBind[T]{f: f}
 }
 
+// Once - Bind T exactly once.
+//
+// Once bindings are evaluated eager when a context is configured.
+// These are global instances and as such their initialization routine
+// must be safely published.
+func Once[T any]() Binding {
+	return ImplementationOnce[T, T]()
+}
+
+// ImplementationOnce - Bind U exactly once for T.
+//
+// Note: This is the same as using bind.Implementation[T, U] and then bind.Once[U].
+//
+// Once bindings are evaluated eager when a context is configured.
+// These are global instances and as such their initialization routine
+// must be safely published.
+func ImplementationOnce[T, U any]() Binding {
+	mustBeAssignable[T, U]()
+	return &onceBind[T, U]{
+		typeFrom: typeOf[T](),
+		typeTo:   typeOf[U](),
+	}
+}
+
 // typeBind represents a bind of a type From to type To
 type typeBind[From, To any] struct {
 	key      string
@@ -124,6 +151,7 @@ type typeBind[From, To any] struct {
 func (b *typeBind[From, To]) typ() reflect.Type   { return b.typeFrom }
 func (b *typeBind[From, To]) typTo() reflect.Type { return b.typeTo }
 func (b *typeBind[From, To]) scope() string       { return b.key }
+func (b *typeBind[From, To]) eager() bool         { return false }
 
 func (b *typeBind[From, To]) solve() (value reflect.Value, init bool, err error) {
 	value, err = alloc(b.typeTo)
@@ -143,6 +171,7 @@ type instBind[T, U any] struct {
 
 func (b *instBind[T, U]) typ() reflect.Type                   { return typeOf[T]() }
 func (b *instBind[T, U]) scope() string                       { return b.key }
+func (b *instBind[T, U]) eager() bool                         { return false }
 func (b *instBind[T, U]) solve() (reflect.Value, bool, error) { return b.inst, false, nil }
 
 func (b *instBind[T, U]) For(k string) Binding {
@@ -157,6 +186,7 @@ type providerBind[T any] struct {
 
 func (b *providerBind[T]) typ() reflect.Type { return typeOf[T]() }
 func (b *providerBind[T]) scope() string     { return b.key }
+func (b *providerBind[T]) eager() bool       { return false }
 
 func (b *providerBind[T]) solve() (reflect.Value, bool, error) {
 	res, err := b.f()
@@ -164,6 +194,41 @@ func (b *providerBind[T]) solve() (reflect.Value, bool, error) {
 }
 
 func (b *providerBind[T]) For(k string) Binding {
+	b.key = k
+	return b
+}
+
+// onceBind represents a bind of a type From to type To that's solved once
+type onceBind[From, To any] struct {
+	done     bool
+	inst     reflect.Value
+	key      string
+	typeFrom reflect.Type
+	typeTo   reflect.Type
+}
+
+func (b *onceBind[From, To]) typ() reflect.Type   { return b.typeFrom }
+func (b *onceBind[From, To]) typTo() reflect.Type { return b.typeTo }
+func (b *onceBind[From, To]) scope() string       { return b.key }
+func (b *onceBind[From, To]) eager() bool         { return true }
+
+func (b *onceBind[From, To]) solve() (value reflect.Value, init bool, err error) {
+	// Since we're using eager initialization there are no two threads
+	// competing for solve and this code is therefor safe.
+	if b.done {
+		value = b.inst
+		return
+	}
+
+	value, err = alloc(b.typeTo)
+	init = true
+	b.inst = value
+	b.done = true
+
+	return
+}
+
+func (b *onceBind[From, To]) For(k string) Binding {
 	b.key = k
 	return b
 }

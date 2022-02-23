@@ -16,11 +16,29 @@ func fromCtx(ctx context.Context) (b *bindings, loaded bool) {
 	return
 }
 
-// WithBindings enriches a context with bindings.
-func WithBindings(ctx context.Context) (context.Context, Bindings) {
+// Configure a context for bindings.
+//
+// Errors are returned when there are duplicate bindings.
+//
+// Example
+//
+//  bind.Configure(ctx,
+//    bind.Instance[string]("username"),
+//    bind.Instance[string]("password"), // this will result in ErrDuplicate
+//  )
+//
+//  bind.Configure(ctx,
+//    bind.Instance[string]("username").For("username"), // different scopes can be used to bind
+//    bind.Instance[string]("password").For("password"), // multiple values of the same type
+//  )
+func Configure(ctx context.Context, bindings ...Binding) (context.Context, error) {
 	parent, _ := fromCtx(ctx)
 	b := newBindings(parent)
-	return context.WithValue(ctx, ctxKey, b), b
+	err := b.configure(bindings)
+	if err == nil {
+		ctx = context.WithValue(ctx, ctxKey, b)
+	}
+	return ctx, err
 }
 
 // New creates and returns an instance of T for U.
@@ -46,8 +64,8 @@ func WithBindings(ctx context.Context) (context.Context, Bindings) {
 //  foo := bind.New[*Foo](ctx)
 //  fmt.Println(foo.Foo) // "foo"
 //
-func New[T, U any](ctx context.Context) U {
-	res, err := TryNew[T, U](ctx)
+func New[T any](ctx context.Context) T {
+	res, err := TryNew[T](ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -58,10 +76,9 @@ func New[T, U any](ctx context.Context) U {
 //
 // See New for more information. TryNew will return any error
 // that is raised instead of a panic.
-func TryNew[T, U any](ctx context.Context) (res U, err error) {
+func TryNew[T any](ctx context.Context) (res T, err error) {
 	b, loaded := fromCtx(ctx)
 	t := typeOf[T]()
-	u := typeOf[U]()
 
 	if !loaded {
 		err = fmt.Errorf("%w: for type %s", ErrContextWithoutBindings, t)
@@ -71,7 +88,7 @@ func TryNew[T, U any](ctx context.Context) (res U, err error) {
 	v, err := b.get(t, "") // new will always search without a scope
 
 	if errors.Is(err, ErrNoSuchBinding) {
-		v, err = alloc(u)
+		v, err = alloc(t)
 
 		if err != nil {
 			return
@@ -86,7 +103,7 @@ func TryNew[T, U any](ctx context.Context) (res U, err error) {
 		return
 	}
 
-	res = unboxValue[U](u, v)
+	res = unboxValue[T](t, v)
 	return
 }
 

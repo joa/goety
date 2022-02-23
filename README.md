@@ -24,27 +24,23 @@ type dao struct {
 	DB       Database `bind:"-"`        // bind without a specific scope 
 }
 
-// init ioc container for the context. respects the
-// context hierarchy as well
-ctx, bindings := bind.WithBindings(context.Background())
-
 // configure some bindings
-bindings.Configure(
+ctx, _ = bind.Configure(ctx,
     bind.Instance[string]("admin").For("username"), // top-notch admin username
     bind.Instance[string]("admin").For("password"), // top-notch admin password
     bind.Implementation[Database, SQLDatabase](), // bind Database to whatever SQLDatabase will be
     bind.Implementation[SQLDatabase, *sqlDBImpl](), // bind SQLDatabase to instances of *sqlDBImpl
     bind.Instance[*sqlDBImpl](&sqlDBImpl{Host: "host"}), // bind *sqlDBImpl to a concrete instance
-    bind.Type[*dao]()) // make the *dao type available
+)
 
 // get Database which will be the *sqlDBImpl instance
 // this is useful if you'd manually fetch dependencies
 // or assign private fields
-db := bind.Must[Database](ctx)
+db := bind.Get[Database](ctx)
 
 // this returns a new instance of *dao with all fields
 // that contain the bind tag populated
-dao := bind.Must[*dao](ctx)
+dao := bind.New[*dao](ctx)
 ```
 
 #### API
@@ -52,15 +48,20 @@ The API allows for various setups. Note that a type is considered a leaf if ther
 other mapping for that type. Hence if `bind.Implementation[X, Y]` and both `bind.Instance[Y]` have
 been configured the instance binding is the result of the injection of `X`.
 
-- `bind.WithBindings(ctx)`: create ioc container in a context; inherit all parent bindings (can overwrite)
+- `bind.Configure(ctx, bindings...)`: configure bindings in a context; can overwrite existing bindings of the parent context
 - `bind.Implementation[X, Y]()`: bind `Y` for `X`, return instances of `Y` if `Y` is a leaf
-- `bind.Type[X]()`: bind `X` and return instances of `X`
+- `bind.Once[X]()`: bind `X` for exactly one instance
+- `bind.ImplementationOnce[X, Y]()`: bind exactly one instance of `Y` for `X`
 - `bind.Instance[X](inst X)`: bind `X` to `inst`
+- `bind.Many[X]()`: bind `X` and return instances of `X`
 - `bind.Provider[X](f func() (X, error))`: bind `X` to invocations of `f`
+- `bind.New[X](ctx)`: resolve `X` or create a new instance of `X` (X doesn't need to be bound)
 - `bind.Get[X](ctx)`: resolve `X`
 - `bind.For[X](ctx, scope)`: resolve `X` for `scope`
-- `bind.Must[X](ctx)`: resolve `X`, panic instead of error
-- `bind.MustFor[X](ctx, scope)`: resolve `X` for `scope`, panic instead of error
+- `bind.MaybeNew[X](ctx)`: resolve `X` or create a new instance of `X`; return error instead of panic
+- `bind.MaybeGet[X](ctx)`: resolve `X`; return error instead of panic
+- `bind.MaybeFor[X](ctx, scope)`: resolve `X` for `scope`; return error instead of panic
+- `bind.Initializer`: When implemented, calls `InitAfter` after a type was initialized
 
 #### Type-Safety
 `bind.Implementation[Iface, Impl]()` can't guarantee `Impl` is assignable to `Iface` at compile time and panics at runtime.

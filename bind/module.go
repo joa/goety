@@ -16,26 +16,6 @@ type typeBindings map[string]Binding
 
 type moduleBindings map[reflect.Type]typeBindings
 
-// Bindings within a context.
-type Bindings interface {
-	// Configure bindings in a context.
-	//
-	// Errors are returned when there are duplicate bindings.
-	//
-	// Example
-	//
-	//  bindings.Configure(
-	//    bind.Instance[string]("username"),
-	//    bind.Instance[string]("password"), // this will result in ErrDuplicate
-	//  )
-	//
-	//  bindings.Configure(
-	//    bind.Instance[string]("username").For("username"), // different scopes can be used to bind
-	//    bind.Instance[string]("password").For("password"), // multiple values of the same type
-	//  )
-	Configure(bindings ...Binding) (err error)
-}
-
 // bindings is a set of type bindings within a context.
 type bindings struct {
 	mut      sync.RWMutex
@@ -51,12 +31,25 @@ func newBindings(parent *bindings) *bindings {
 	}
 }
 
-func (m *bindings) Configure(bindings ...Binding) (err error) {
-	m.mut.Lock()
-	defer m.mut.Unlock()
+func (bs *bindings) configure(bindings []Binding) (err error) {
+	bs.mut.Lock()
+	defer bs.mut.Unlock()
 
 	for _, b := range bindings {
-		if err = m.configureBinding(b); err != nil {
+		if err = bs.configureBinding(b); err != nil {
+			return
+		}
+	}
+
+	// initialize all eager bindings
+	for _, b := range bindings {
+		if !b.eager() {
+			continue
+		}
+
+		_, err = bs.solve(b)
+
+		if err != nil {
 			return
 		}
 	}
@@ -65,13 +58,13 @@ func (m *bindings) Configure(bindings ...Binding) (err error) {
 }
 
 // configureBinding - configure a single binding.
-func (m *bindings) configureBinding(b Binding) (err error) {
+func (bs *bindings) configureBinding(b Binding) (err error) {
 	typ := b.typ()
-	typeScope, loaded := m.bindings[typ]
+	typeScope, loaded := bs.bindings[typ]
 
 	if !loaded {
 		typeScope = make(typeBindings)
-		m.bindings[typ] = typeScope
+		bs.bindings[typ] = typeScope
 	}
 
 	scope := b.scope()
@@ -116,12 +109,12 @@ func findBinding(b *bindings, t reflect.Type, k string) (Binding, bool) {
 	return nil, false
 }
 
-func (m *bindings) get(t reflect.Type, k string) (res reflect.Value, err error) {
+func (bs *bindings) get(t reflect.Type, k string) (res reflect.Value, err error) {
 	if k == scopeEmptyDash || k == scopeEmptyWildcard {
 		k = ""
 	}
 
-	binding, ok := findBinding(m, t, k)
+	binding, ok := findBinding(bs, t, k)
 
 	if !ok {
 		if k == "" {
@@ -142,7 +135,7 @@ func (m *bindings) get(t reflect.Type, k string) (res reflect.Value, err error) 
 		}
 
 		// TODO(joa): is it correct to search with an empty scope for a more concrete binding?
-		better, ok := findBinding(m, to.typTo(), "")
+		better, ok := findBinding(bs, to.typTo(), "")
 
 		if binding == better || !ok {
 			break
@@ -151,23 +144,31 @@ func (m *bindings) get(t reflect.Type, k string) (res reflect.Value, err error) 
 		binding = better
 	}
 
-	res, init, err := binding.solve()
+	res, err = bs.solve(binding)
+
+	return
+}
+
+func (bs *bindings) solve(b Binding) (res reflect.Value, err error) {
+	var init bool
+
+	res, init, err = b.solve()
 
 	if err != nil {
 		return
 	}
 
 	if init {
-		err = m.initialize(res.Type(), res)
+		err = bs.initialize(res.Type(), res)
 	}
 
 	return
 }
 
-func (m *bindings) initialize(typ reflect.Type, value reflect.Value) (err error) {
+func (bs *bindings) initialize(typ reflect.Type, value reflect.Value) (err error) {
 	switch typ.Kind() {
 	case reflect.Pointer:
-		if err = m.initialize(typ.Elem(), value.Elem()); err != nil {
+		if err = bs.initialize(typ.Elem(), value.Elem()); err != nil {
 			return
 		}
 	case reflect.Struct:
@@ -187,7 +188,7 @@ func (m *bindings) initialize(typ reflect.Type, value reflect.Value) (err error)
 				continue
 			}
 
-			v, err := m.get(fieldType.Type, scope)
+			v, err := bs.get(fieldType.Type, scope)
 
 			if err != nil {
 				return err

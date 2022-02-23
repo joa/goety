@@ -51,3 +51,28 @@ func TestAssignableTo(t *testing.T) {
 		t.Error("*impl MUST be assignable to iface")
 	}
 }
+
+func TestMustBeAssignable(t *testing.T) {
+	mustBeAssignable[iface, *impl]()
+	defer func() {
+		if recover() == nil {
+			t.Error("expected a panic")
+		}
+	}()
+	type notAnImpl struct{}
+	mustBeAssignable[iface, *notAnImpl]()
+}
+
+type typeToImpl impl
+
+func TestMustBeAssignableForAlias(t *testing.T) {
+	// var x iface
+	// var y *typeToImpl
+	// x = y // compile error!
+	defer func() {
+		if recover() == nil {
+			t.Error("expected a panic")
+		}
+	}()
+	mustBeAssignable[iface, *typeToImpl]()
+}

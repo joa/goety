@@ -27,11 +27,8 @@ func TestGet(t *testing.T) {
 		w  string `bind:"x"` // can't set this as it is private
 	}
 
-	// create bindings for context
-	ctx, bindings := bind.WithBindings(context.Background())
-
-	// configure bindings
-	err := bindings.Configure(
+	// configure bindings for context
+	ctx, err := bind.Configure(context.Background(),
 		bind.Instance[string]("X").For("x"),  // bind string with scope x
 		bind.Instance[string]("Y"),           // bind string without scope
 		bind.Implementation[Iface, *Impl](),  // bind Iface to *Impl
@@ -104,10 +101,8 @@ func (i *ImplAB) A() {}
 func (i *ImplAB) B() {}
 
 func TestGetIfaceToIfaceUnsatisfied(t *testing.T) {
-	ctx, bindings := bind.WithBindings(context.Background())
-
 	// configure bindings but leave IfaceB unsatisfied
-	err := bindings.Configure(
+	ctx, err := bind.Configure(context.Background(),
 		bind.Implementation[IfaceA, IfaceB](),
 		//bind.Implementation[IfaceB, ???](),
 	)
@@ -123,12 +118,10 @@ func TestGetIfaceToIfaceUnsatisfied(t *testing.T) {
 }
 
 func TestGetIfaceToIfaceSatisfied(t *testing.T) {
-	ctx, bindings := bind.WithBindings(context.Background())
-
-	err := bindings.Configure(
+	ctx, err := bind.Configure(
+		context.Background(),
 		bind.Implementation[IfaceA, IfaceB](),
-		bind.Implementation[IfaceB, *ImplAB](),
-	)
+		bind.Implementation[IfaceB, *ImplAB]())
 
 	if err != nil {
 		t.Fatal(err)

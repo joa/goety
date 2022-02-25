@@ -11,26 +11,28 @@ Mostly type-safe IoC container.
 #### Example
 ```go
 // first we define some types
-// - Database is our basic database interface
-// - SQLDatabase is a database interface for SQL databases
-// - sqlDBImpl implements both interfaces
+// - Database is our database interface
+// - sqlDBImpl implements the interfaces
 // - dao uses the database
 type Database interface { /* ... */ }
-type SQLDatabase interface() { Database /* ... */ }
-type sqlDBImpl struct { Host string }
-type dao struct {
-	Username string   `bind:"username"` // get the username string
-	Password string   `bind:"password"` // get the password string
-	DB       Database `bind:"-"`        // bind without a specific scope 
+
+type sqlDBImpl struct {
+    Username string   `bind:"username"` // get the username
+    Password string   `bind:"password"` // get the password
+    Host     string   `bind:"host"`     // get the host
+    Port     int      `bind:"port"`     // get the port
 }
 
-// configure some bindings
+type dao struct {
+	DB       Database `bind:"-"`        // get the database 
+}
+
 ctx, _ = bind.Configure(ctx,
-    bind.Instance[string]("admin").For("username"), // top-notch admin username
-    bind.Instance[string]("admin").For("password"), // top-notch admin password
-    bind.Implementation[Database, SQLDatabase](), // bind Database to whatever SQLDatabase will be
-    bind.Implementation[SQLDatabase, *sqlDBImpl](), // bind SQLDatabase to instances of *sqlDBImpl
-    bind.Instance[*sqlDBImpl](&sqlDBImpl{Host: "host"}), // bind *sqlDBImpl to a concrete instance
+    bind.String("admin").For("username"),
+    bind.String("s3cr3t").For("password"),
+    bind.String("localhost").For("host"),
+    bind.Port(5432).For("port"),
+    bind.ImplementationOnce[Database, *sqlDBImpl](), // bind Database to one instance of *sqlDBImpl
 )
 
 // get Database which will be the *sqlDBImpl instance

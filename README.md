@@ -31,7 +31,7 @@ ctx, _ = bind.Configure(ctx,
     bind.String("admin").For("username"),
     bind.String("s3cr3t").For("password"),
     bind.String("localhost").For("host"),
-    bind.Port(5432).For("port"),
+    bind.Int(5432).For("port"),
     bind.ImplementationOnce[Database, *sqlDBImpl](), // bind Database to one instance of *sqlDBImpl
 )
 

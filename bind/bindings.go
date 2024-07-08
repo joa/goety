@@ -42,14 +42,14 @@ type bindingTo interface {
 //
 // New instances of T are created when requested.
 //
-// Interfaces
+// # Interfaces
 //
 // Note that type bindings are always leafs. They must be concrete types as
 // the following is a duplicate binding and therefore an error:
 //
-//  bindings.Configure(
-//   bind.Implementation[Iface, Impl](),
-//   bind.Type[Iface]()) // Iface is already bound to Impl
+//	bindings.Configure(
+//	 bind.Implementation[Iface, Impl](),
+//	 bind.Type[Iface]()) // Iface is already bound to Impl
 //
 // Since Type bindings can't be satisfied if the given type is an interface
 // this method panics if T is an interface type.
@@ -73,15 +73,15 @@ func Type[T any]() Binding {
 //
 // Example
 //
-//  bindings.Configure(
-//    bind.Implementation[Iface, *Impl]())  // in this case we create new instances of Impl
+//	bindings.Configure(
+//	  bind.Implementation[Iface, *Impl]())  // in this case we create new instances of Impl
 //
-//  bindings.Configure(
-//    bind.Implementation[Iface, *Impl](),  // here we resolve to another binding for Impl
-//    bind.Instance[*Impl](&Impl{}))        // when Impl is requested for Iface we return this instance
+//	bindings.Configure(
+//	  bind.Implementation[Iface, *Impl](),  // here we resolve to another binding for Impl
+//	  bind.Instance[*Impl](&Impl{}))        // when Impl is requested for Iface we return this instance
 //
-//  bindings.Configure(
-//    bind.Instance[Iface, *Impl](&Impl{})) // note the above can also be simply an instance bind
+//	bindings.Configure(
+//	  bind.Instance[Iface, *Impl](&Impl{})) // note the above can also be simply an instance bind
 //
 // TODO(joa): compiler support missing for Implementation[Iface any, Impl ~Iface]
 func Implementation[Iface, Impl any]() Binding {
@@ -98,9 +98,9 @@ func Implementation[Iface, Impl any]() Binding {
 //
 // Example
 //
-//  bindings.Configure(
-//    bind.Instance[Iface, *Impl](&Impl{}), // bind an instance for another type
-//    bind.Instance[string]("value"))       // bind an instance for the same type
+//	bindings.Configure(
+//	  bind.Instance[Iface, *Impl](&Impl{}), // bind an instance for another type
+//	  bind.Instance[string]("value"))       // bind an instance for the same type
 func Instance[T, U any](inst U) Binding {
 	mustBeAssignable[T, U]()
 	return &instBind[T, U]{inst: reflect.ValueOf(inst)}
@@ -111,6 +111,36 @@ func String(s string) Binding { return Instance[string](s) }
 
 // Int - Shortcut for bind.Instance[int]
 func Int(i int) Binding { return Instance[int](i) }
+
+// Int32 - Shortcut for bind.Instance[int32]
+func Int32(i int) Binding { return Instance[int32](i) }
+
+// Int64 - Shortcut for bind.Instance[int64]
+func Int64(i int) Binding { return Instance[int64](i) }
+
+// Uint - Shortcut for bind.Instance[uint]
+func Uint(i uint) Binding { return Instance[uint](i) }
+
+// Uint32 - Shortcut for bind.Instance[uint32]
+func Uint32(i uint) Binding { return Instance[uint32](i) }
+
+// Uint64 - Shortcut for bind.Instance[uint64]
+func Uint64(i uint) Binding { return Instance[uint64](i) }
+
+// Float64 - Shortcut for bind.Instance[float64]
+func Float64(f float64) Binding { return Instance[float64](f) }
+
+// Float32 - Shortcut for bind.Instance[float32]
+func Float32(f float32) Binding { return Instance[float32](f) }
+
+// Bool - Shortcut for bind.Instance[bool]
+func Bool(b bool) Binding { return Instance[bool](b) }
+
+// Map - Shortcut for bind.Instance[map[K]V]
+func Map[K comparable, V any](m map[K]V) Binding { return Instance[map[K]V](m) }
+
+// Slice - Shortcut for bind.Instance[[]V]
+func Slice[V any](s []V) Binding { return Instance[[]V](s) }
 
 // Provider - Bind a function f to type T.
 func Provider[T any](f func() (T, error)) Binding {

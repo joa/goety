@@ -35,13 +35,11 @@ func alloc(t reflect.Type) (v reflect.Value, err error) {
 // It is assumed that v is always a pointer to a value
 // whereas the type t not necessarily.
 func unboxValue[T any](t reflect.Type, v reflect.Value) T {
-	switch t.Kind() {
-	case reflect.Pointer,
-		reflect.Interface:
-		return v.Interface().(T)
-	default:
+	if t.Kind() == reflect.Struct {
 		return *v.Interface().(*T)
 	}
+
+	return v.Interface().(T)
 }
 
 // assignableTo is true when B is assignable to A.

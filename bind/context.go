@@ -22,15 +22,15 @@ func fromCtx(ctx context.Context) (b *bindings, loaded bool) {
 //
 // Example
 //
-//  bind.Configure(ctx,
-//    bind.Instance[string]("username"),
-//    bind.Instance[string]("password"), // this will result in ErrDuplicate
-//  )
+//	bind.Configure(ctx,
+//	  bind.Instance[string]("username"),
+//	  bind.Instance[string]("password"), // this will result in ErrDuplicate
+//	)
 //
-//  bind.Configure(ctx,
-//    bind.Instance[string]("username").For("username"), // different scopes can be used to bind
-//    bind.Instance[string]("password").For("password"), // multiple values of the same type
-//  )
+//	bind.Configure(ctx,
+//	  bind.Instance[string]("username").For("username"), // different scopes can be used to bind
+//	  bind.Instance[string]("password").For("password"), // multiple values of the same type
+//	)
 func Configure(ctx context.Context, bindings ...Binding) (context.Context, error) {
 	parent, _ := fromCtx(ctx)
 	b := newBindings(parent)
@@ -54,16 +54,15 @@ func Configure(ctx context.Context, bindings ...Binding) (context.Context, error
 //
 // Example
 //
-//  type Foo struct {
-//    Foo string `bind:"-"`
-//  }
+//	type Foo struct {
+//	  Foo string `bind:"-"`
+//	}
 //
-//  bindings.Configure(
-//    bind.String("foo"))
+//	bindings.Configure(
+//	  bind.String("foo"))
 //
-//  foo := bind.New[*Foo](ctx)
-//  fmt.Println(foo.Foo) // "foo"
-//
+//	foo := bind.New[*Foo](ctx)
+//	fmt.Println(foo.Foo) // "foo"
 func New[T any](ctx context.Context) T {
 	res, err := TryNew[T](ctx)
 	if err != nil {
@@ -121,6 +120,18 @@ func Get[V any](ctx context.Context) V {
 	return res
 }
 
+// GetOr - Get an instance of V in the current context or return a default.
+//
+// While Get would panic if V cannot be resolved and TryGet would return an error,
+// this method returns a default value instead.
+func GetOr[V any](ctx context.Context, def V) V {
+	res, err := TryGet[V](ctx)
+	if err != nil {
+		res = def
+	}
+	return res
+}
+
 // TryGet an instance of V or return an error.
 func TryGet[V any](ctx context.Context) (res V, err error) {
 	return TryFor[V](ctx, "")
@@ -136,6 +147,18 @@ func For[V any](ctx context.Context, key string) V {
 	res, err := TryFor[V](ctx, key)
 	if err != nil {
 		panic(err)
+	}
+	return res
+}
+
+// ForOr - Get an instance of V for a specific key or return a default.
+//
+// While For would panic if V cannot be resolved and TryFor would return an error,
+// this method returns a default value instead.
+func ForOr[V any](ctx context.Context, key string, def V) V {
+	res, err := TryFor[V](ctx, key)
+	if err != nil {
+		res = def
 	}
 	return res
 }

@@ -132,3 +132,28 @@ func TestGetIfaceToIfaceSatisfied(t *testing.T) {
 		t.Errorf("expected no error, got %s", err)
 	}
 }
+
+func TestGetOr(t *testing.T) {
+	// configure bindings for context
+	ctx, err := bind.Configure(
+		context.Background(),
+		bind.String("X").For("x"),
+	)
+
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	if res := bind.GetOr(ctx, "Y"); res != "Y" { // nothing in default scope
+		t.Errorf("expected Y, got %q", res)
+	}
+
+	if res := bind.ForOr(ctx, "y", "Y"); res != "Y" { // nothing in 'y' scope
+		t.Errorf("expected Y, got %q", res)
+	}
+
+	if res := bind.ForOr(ctx, "x", "Y"); res != "X" { // should find 'X' in 'x' scope
+		t.Errorf("expected X, got %q", res)
+	}
+}

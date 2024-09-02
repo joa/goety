@@ -113,19 +113,19 @@ func String(s string) Binding { return Instance[string](s) }
 func Int(i int) Binding { return Instance[int](i) }
 
 // Int32 - Shortcut for bind.Instance[int32]
-func Int32(i int) Binding { return Instance[int32](i) }
+func Int32(i int32) Binding { return Instance[int32](i) }
 
 // Int64 - Shortcut for bind.Instance[int64]
-func Int64(i int) Binding { return Instance[int64](i) }
+func Int64(i int64) Binding { return Instance[int64](i) }
 
 // Uint - Shortcut for bind.Instance[uint]
 func Uint(i uint) Binding { return Instance[uint](i) }
 
 // Uint32 - Shortcut for bind.Instance[uint32]
-func Uint32(i uint) Binding { return Instance[uint32](i) }
+func Uint32(i uint32) Binding { return Instance[uint32](i) }
 
 // Uint64 - Shortcut for bind.Instance[uint64]
-func Uint64(i uint) Binding { return Instance[uint64](i) }
+func Uint64(i uint64) Binding { return Instance[uint64](i) }
 
 // Float64 - Shortcut for bind.Instance[float64]
 func Float64(f float64) Binding { return Instance[float64](f) }
